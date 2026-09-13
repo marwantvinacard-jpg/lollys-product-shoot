@@ -16,17 +16,14 @@ export interface FeatureFlags {
   ambientSound: boolean;
 }
 
-// movieFlow/imageEditor/videoEditor default off: those components aren't
-// wired into App.tsx/ProductCard.tsx right now (kept out to fit the deploy
-// size budget -- see README), so the flag would gate UI for a feature that
-// doesn't exist yet. Flip one on only once its component is wired back in.
-// Everything else defaults "on."
+// All flags default "on" except ambientSound, which already shipped
+// disabled-by-default in the UI.
 export const DEFAULT_FLAGS: FeatureFlags = {
   dashboard: true,
-  movieFlow: false,
+  movieFlow: true,
   customModelStudio: true,
-  imageEditor: false,
-  videoEditor: false,
+  imageEditor: true,
+  videoEditor: true,
   ambientSound: false,
 };
 

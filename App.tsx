@@ -24,6 +24,7 @@ import { subscribeToFeatureFlags, DEFAULT_FLAGS, FeatureFlags } from './services
 // that most sessions never touch if they just use the Generate tab. Splitting
 // them out keeps that tab's first load smaller.
 const Dashboard = React.lazy(() => import('./components/Dashboard').then((m) => ({ default: m.Dashboard })));
+const MovieFlowStudio = React.lazy(() => import('./components/MovieFlowStudio').then((m) => ({ default: m.MovieFlowStudio })));
 const CustomModelStudio = React.lazy(() => import('./components/CustomModelStudio').then((m) => ({ default: m.CustomModelStudio })));
 
 // Fetches a (possibly cross-origin) image URL and returns its raw base64
@@ -92,7 +93,7 @@ const App: React.FC = () => {
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'generate' | 'history' | 'dashboard'>('generate');
+  const [activeTab, setActiveTab] = useState<'generate' | 'history' | 'movieflow' | 'dashboard'>('generate');
   const [supportOpen, setSupportOpen] = useState(false);
   const [flags, setFlags] = useState<FeatureFlags>(DEFAULT_FLAGS);
 
@@ -101,6 +102,7 @@ const App: React.FC = () => {
   // A tab whose flag flips off mid-session shouldn't leave the user stranded
   // on now-hidden content.
   useEffect(() => {
+    if (activeTab === 'movieflow' && !flags.movieFlow) setActiveTab('generate');
     if (activeTab === 'dashboard' && !flags.dashboard) setActiveTab('generate');
   }, [flags, activeTab]);
 
@@ -769,6 +771,14 @@ const App: React.FC = () => {
                     >
                     History
                     </button>
+                    {flags.movieFlow && (
+                    <button
+                    onClick={() => setActiveTab('movieflow')}
+                    className={`px-4 py-2 rounded-full transition-all ${activeTab === 'movieflow' ? 'bg-white text-slate-900 shadow-sm' : 'hover:bg-slate-200/50'}`}
+                    >
+                    Movie Flow
+                    </button>
+                    )}
                     {flags.dashboard && (
                     <button
                     onClick={() => setActiveTab('dashboard')}
@@ -1122,6 +1132,12 @@ const App: React.FC = () => {
                   ))
               )}
           </div>
+        )}
+
+        {activeTab === 'movieflow' && flags.movieFlow && (
+          <React.Suspense fallback={<TabFallback />}>
+            <MovieFlowStudio username={username} />
+          </React.Suspense>
         )}
 
         {activeTab === 'dashboard' && flags.dashboard && (
