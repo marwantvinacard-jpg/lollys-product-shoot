@@ -7,19 +7,6 @@ import { openInCapCut } from '../utils/capcut';
 import { upscaleImage } from '../services/magnificService';
 import { getGenerationTasksForGroup } from '../services/taxonomy';
 
-// Lazy-loaded: ImageEditor pulls in fabric.js (a real chunk of weight) and
-// VideoEditor pulls in the canvas/MediaRecorder export pipeline -- neither is
-// needed until someone actually clicks "Edit," so there's no reason for every
-// visitor to download them just to view their generated shots.
-const ImageEditor = React.lazy(() => import('./ImageEditor').then((m) => ({ default: m.ImageEditor })));
-const VideoEditor = React.lazy(() => import('./VideoEditor').then((m) => ({ default: m.VideoEditor })));
-
-const EditorLoadingOverlay: React.FC = () => (
-  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/97 backdrop-blur-xl">
-    <Loader2 className="animate-spin text-white/60" size={32} />
-  </div>
-);
-
 interface ProductCardProps {
   product: ProductImage;
   onViewImage: (url: string, title: string) => void;
@@ -755,30 +742,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onViewImage, 
         )}
 
       </div>
-
-      {imageEditorTarget && (
-          <React.Suspense fallback={<EditorLoadingOverlay />}>
-              <ImageEditor
-                  isOpen={!!imageEditorTarget}
-                  imageUrl={imageEditorTarget.url}
-                  title={imageEditorTarget.title}
-                  onClose={() => setImageEditorTarget(null)}
-                  onSave={(dataUrl) => onSaveEdit(product.id, imageEditorTarget.key, dataUrl)}
-              />
-          </React.Suspense>
-      )}
-
-      {videoEditorTarget && (
-          <React.Suspense fallback={<EditorLoadingOverlay />}>
-              <VideoEditor
-                  isOpen={!!videoEditorTarget}
-                  videoUrl={videoEditorTarget.url}
-                  title={videoEditorTarget.title}
-                  onClose={() => setVideoEditorTarget(null)}
-                  onSave={(blobUrl) => onSaveEdit(product.id, videoEditorTarget.key, blobUrl)}
-              />
-          </React.Suspense>
-      )}
 
       {capCutToast && (
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] max-w-sm px-4 py-3 rounded-xl bg-slate-900 text-white text-xs shadow-2xl shadow-black/30 flex items-start gap-2.5 animate-fade-in-up">
