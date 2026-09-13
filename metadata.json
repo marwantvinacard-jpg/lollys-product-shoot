@@ -1,0 +1,7 @@
+{
+  "name": "Lollys Product Shoot App ( DONE)",
+  "description": "Transform casual product photos into luxury commercial photography using AI.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

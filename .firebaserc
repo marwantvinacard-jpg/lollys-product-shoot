@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "default": "feasibility-4a69f",
+    "staging": "REPLACE_WITH_YOUR_STAGING_PROJECT_ID"
+  }
+}

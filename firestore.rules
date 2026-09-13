@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Zero-Trust Rule: All generation history records are append-only.
+    // They can be read and created by any signed-in user (this is an
+    // intentionally shared cross-account audit log -- see the "Shared
+    // Multi-User Log" label in the Dashboard UI), but CANNOT be updated or
+    // deleted under any circumstances.
+    match /lollys_api_usage_history/{recordId} {
+      allow read, create: if request.auth != null;
+      allow update, delete: if false;
+    }
+
+    // Boot-time connectivity ping (services/firebase.ts) -- read-only.
+    match /test_connection/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // In-app support tickets: a user can file one and read back only their
+    // own; nobody can edit or delete one from the client (an operator
+    // manages status via the console/an admin tool, not built yet).
+    match /support_tickets/{ticketId} {
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Client-side error reports (ErrorBoundary + a global window.onerror
+    // handler -- see services/monitoring.ts). Write-only telemetry: allowed
+    // even signed out (errors can happen on the login screen itself), never
+    // readable/editable from the client since these could contain a stack
+    // trace an attacker shouldn't get to read back.
+    match /client_errors/{errorId} {
+      allow create: if true;
+      allow read, update, delete: if false;
+    }
+
+    // Saved custom AI model characters (functions/src/index.ts's
+    // saveCustomModel/deleteCustomModel). Unlike the audit-log-style
+    // collections above, this is the user's own personal library, so they
+    // can delete their own entries -- but never edit one directly (that
+    // always goes through saveCustomModel, which re-uploads the image).
+    match /custom_models/{modelId} {
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow read, delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow update: if false;
+    }
+
+    // Purchased-credit balance (functions/src/index.ts's CREDIT_PACKS /
+    // stripeWebhook). Only ever written by the Admin SDK -- the Stripe
+    // webhook on a successful purchase, or the rate limiter transaction when
+    // spending credits -- never directly by the client.
+    match /billing/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // Feature flags (services/featureFlags.ts): a single admin-managed
+    // document read by every client (even signed-out, so flags can gate the
+    // sign-in screen itself) to toggle features without a redeploy. Only
+    // ever written from the Firebase console/Admin SDK, never the client.
+    match /feature_flags/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Everything else is closed by default. The previous catch-all
+    // (`allow read, write: if true`) let anyone with this project's public
+    // client config -- visible in the deployed JS bundle -- read, overwrite,
+    // or delete every document in every collection in this database,
+    // including ones added by future features. Never reopen this without
+    // scoping it to an authenticated request.auth.uid.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

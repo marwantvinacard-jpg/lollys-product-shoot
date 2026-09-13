@@ -1,0 +1,12 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // All reads/writes to generated video files go through the Cloud
+    // Functions (Admin SDK, which bypasses these rules) and are handed back
+    // to the client as time-limited signed URLs. The client SDK itself never
+    // needs direct Storage access, so everything is closed here.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

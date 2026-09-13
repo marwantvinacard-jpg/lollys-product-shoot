@@ -1,0 +1,51 @@
+{
+  "entities": {
+    "UsageRecord": {
+      "title": "Usage Record",
+      "description": "Records every image or video generation, including tokens, cost, and the username of the account that made the generation.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the record"
+        },
+        "timestamp": {
+          "type": "integer",
+          "description": "Unix timestamp in milliseconds of when the generation was made"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["image", "video", "text"],
+          "description": "Type of generation"
+        },
+        "model": {
+          "type": "string",
+          "description": "Model used for generation"
+        },
+        "tokensUsed": {
+          "type": "integer",
+          "description": "Total tokens consumed by the generation"
+        },
+        "cost": {
+          "type": "number",
+          "description": "Calculated cost in dollars"
+        },
+        "details": {
+          "type": "string",
+          "description": "Specific details of what was generated"
+        },
+        "username": {
+          "type": "string",
+          "description": "Username of the account signed in during generation"
+        }
+      },
+      "required": ["id", "timestamp", "type", "model", "tokensUsed", "cost", "details", "username"]
+    }
+  },
+  "firestore": {
+    "lollys_api_usage_history/{recordId}": {
+      "schema": "UsageRecord",
+      "description": "Historical log of all generated content across all accounts."
+    }
+  }
+}
