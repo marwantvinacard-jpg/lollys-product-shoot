@@ -17,5 +17,9 @@ export default defineConfig({
     // when the function under test is plain logic.
     environment: 'happy-dom',
     globals: false,
+    // tests/rules/** needs the Firestore emulator and is run separately via
+    // `npm run test:rules` (vitest.rules.config.ts) -- left in the default
+    // run, it hangs `npm test` waiting for a connection to 127.0.0.1:8080.
+    exclude: ['**/node_modules/**', 'tests/rules/**'],
   },
 });
