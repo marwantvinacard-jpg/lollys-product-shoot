@@ -12,7 +12,7 @@
  * account can't exhaust the whole project's quota.
  */
 import { initializeApp } from 'firebase-admin/app';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, Transaction } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
@@ -90,7 +90,7 @@ const checkBurstLimit = async (uid: string, kind: keyof typeof DAILY_LIMITS) => 
   const windowId = Math.floor(Date.now() / (windowSeconds * 1000));
   const ref = db.collection('rate_limit_bursts').doc(`${uid}_${kind}_${windowId}`);
 
-  await db.runTransaction(async (tx) => {
+  await db.runTransaction(async (tx: Transaction) => {
     const snap = await tx.get(ref);
     const count = snap.exists ? (snap.data()?.count ?? 0) : 0;
     if (count >= max) {
@@ -115,7 +115,7 @@ const checkAndIncrementRateLimit = async (uid: string, kind: keyof typeof DAILY_
   const creditCost = CREDIT_COST[kind];
   const billingRef = db.collection('billing').doc(uid);
 
-  await db.runTransaction(async (tx) => {
+  await db.runTransaction(async (tx: Transaction) => {
     const snap = await tx.get(ref);
     const count = snap.exists ? (snap.data()?.count ?? 0) : 0;
 
