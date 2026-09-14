@@ -12,7 +12,7 @@
  * account can't exhaust the whole project's quota.
  */
 import { initializeApp } from 'firebase-admin/app';
-import { getFirestore, FieldValue, Transaction } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, Transaction, QueryDocumentSnapshot } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
@@ -1114,7 +1114,7 @@ export const adminSetFeatureFlags = onCall({ timeoutSeconds: 30 }, async (reques
 export const adminListSupportTickets = onCall({ timeoutSeconds: 30 }, async (request) => {
   requireAdmin(request);
   const snap = await db.collection('support_tickets').orderBy('createdAt', 'desc').limit(200).get();
-  return snap.docs.map((doc) => {
+  return snap.docs.map((doc: QueryDocumentSnapshot) => {
     const data = doc.data();
     return {
       id: doc.id,
@@ -1140,7 +1140,7 @@ export const adminUpdateSupportTicketStatus = onCall({ timeoutSeconds: 30 }, asy
 export const adminListCustomModels = onCall({ timeoutSeconds: 30 }, async (request) => {
   requireAdmin(request);
   const snap = await db.collection('custom_models').orderBy('createdAt', 'desc').limit(200).get();
-  return snap.docs.map((doc) => {
+  return snap.docs.map((doc: QueryDocumentSnapshot) => {
     const data = doc.data();
     return {
       id: doc.id,
@@ -1174,7 +1174,7 @@ export const adminDeleteCustomModel = onCall({ timeoutSeconds: 30 }, async (requ
 export const adminListBilling = onCall({ timeoutSeconds: 30 }, async (request) => {
   requireAdmin(request);
   const snap = await db.collection('billing').limit(500).get();
-  return snap.docs.map((doc) => ({ uid: doc.id, credits: doc.data()?.credits ?? 0 }));
+  return snap.docs.map((doc: QueryDocumentSnapshot) => ({ uid: doc.id, credits: doc.data()?.credits ?? 0 }));
 });
 
 // Reads the uid/kind/day fields checkAndIncrementRateLimit now stamps on
@@ -1185,7 +1185,7 @@ export const adminGetTodayRateLimits = onCall({ timeoutSeconds: 30 }, async (req
   requireAdmin(request);
   const day = new Date().toISOString().slice(0, 10);
   const snap = await db.collection('rate_limits').where('day', '==', day).limit(500).get();
-  return snap.docs.map((doc) => {
+  return snap.docs.map((doc: QueryDocumentSnapshot) => {
     const data = doc.data();
     return { uid: data.uid, kind: data.kind, count: data.count ?? 0 };
   });
