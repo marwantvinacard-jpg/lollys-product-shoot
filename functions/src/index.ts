@@ -100,6 +100,8 @@ const checkBurstLimit = async (uid: string, kind: keyof typeof DAILY_LIMITS) => 
       );
     }
     tx.set(ref, {
+      uid,
+      kind,
       count: count + 1,
       expiresAt: new Date(Date.now() + windowSeconds * 1000 * 2),
     }, { merge: true });
@@ -121,7 +123,7 @@ const checkAndIncrementRateLimit = async (uid: string, kind: keyof typeof DAILY_
 
     if (count < limit) {
       // Still within the free daily allowance.
-      tx.set(ref, { count: count + 1, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      tx.set(ref, { uid, kind, day, count: count + 1, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
       return;
     }
 
@@ -136,7 +138,7 @@ const checkAndIncrementRateLimit = async (uid: string, kind: keyof typeof DAILY_
     }
 
     tx.update(billingRef, { credits: FieldValue.increment(-creditCost) });
-    tx.set(ref, { count: count + 1, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    tx.set(ref, { uid, kind, day, count: count + 1, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
   });
 };
 
@@ -1076,4 +1078,115 @@ export const stripeWebhook = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEB
   }
 
   res.status(200).send('ok');
+});
+
+// ---------------------------------------------------------------------------
+// Admin panel: feature flags, support tickets, custom-model moderation, and
+// billing/rate-limit visibility for a short list of trusted operators.
+//
+// Deliberately an email allowlist checked server-side, not a Firestore-backed
+// role or Auth custom claim: the list is short and changes rarely, and living
+// in code means every change goes through code review instead of being a
+// silent Firestore write nobody notices. Every admin* function re-checks this
+// itself -- the client-side ADMIN_EMAILS in services/admin.ts only controls
+// whether the Admin nav item is shown, never actual access.
+// ---------------------------------------------------------------------------
+
+const ADMIN_EMAILS = new Set(['marwan.tvinacard@gmail.com']);
+
+const requireAdmin = (request: { auth?: { uid: string; token?: { email?: string } } | null }): string => {
+  const uid = requireAuth(request);
+  const email = request.auth?.token?.email?.toLowerCase();
+  if (!email || !ADMIN_EMAILS.has(email)) {
+    throw new HttpsError('permission-denied', 'Admin access required.');
+  }
+  return uid;
+};
+
+export const adminSetFeatureFlags = onCall({ timeoutSeconds: 30 }, async (request) => {
+  requireAdmin(request);
+  const flags = request.data as Record<string, boolean>;
+  if (!flags || typeof flags !== 'object') throw new HttpsError('invalid-argument', 'flags object is required.');
+  await db.collection('feature_flags').doc('config').set(flags, { merge: true });
+  return { ok: true };
+});
+
+export const adminListSupportTickets = onCall({ timeoutSeconds: 30 }, async (request) => {
+  requireAdmin(request);
+  const snap = await db.collection('support_tickets').orderBy('createdAt', 'desc').limit(200).get();
+  return snap.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      uid: data.uid,
+      email: data.email || 'unknown',
+      message: data.message || '',
+      status: data.status || 'open',
+      createdAt: data.createdAt?.toMillis?.() ?? Date.now(),
+    };
+  });
+});
+
+export const adminUpdateSupportTicketStatus = onCall({ timeoutSeconds: 30 }, async (request) => {
+  requireAdmin(request);
+  const { ticketId, status } = request.data as { ticketId: string; status: 'open' | 'closed' };
+  if (!ticketId || (status !== 'open' && status !== 'closed')) {
+    throw new HttpsError('invalid-argument', 'ticketId and a valid status are required.');
+  }
+  await db.collection('support_tickets').doc(ticketId).update({ status });
+  return { ok: true };
+});
+
+export const adminListCustomModels = onCall({ timeoutSeconds: 30 }, async (request) => {
+  requireAdmin(request);
+  const snap = await db.collection('custom_models').orderBy('createdAt', 'desc').limit(200).get();
+  return snap.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      uid: data.uid,
+      name: data.name || 'My Model',
+      gender: data.gender || 'Unspecified',
+      imageUrl: data.imageUrl,
+      createdAt: data.createdAt?.toMillis?.() ?? Date.now(),
+    };
+  });
+});
+
+// Separate from the user-facing deleteCustomModel (which enforces
+// snap.data().uid === uid) so that function's ownership check never has to
+// grow an admin bypass -- this one skips ownership by design instead.
+export const adminDeleteCustomModel = onCall({ timeoutSeconds: 30 }, async (request) => {
+  requireAdmin(request);
+  const { modelId } = request.data as { modelId: string };
+  if (!modelId) throw new HttpsError('invalid-argument', 'modelId is required.');
+
+  const ref = db.collection('custom_models').doc(modelId);
+  const snap = await ref.get();
+  if (!snap.exists) return { deleted: false };
+  const ownerUid = snap.data()?.uid;
+
+  if (ownerUid) await bucket().file(`custom-models/${ownerUid}/${modelId}.png`).delete({ ignoreNotFound: true });
+  await ref.delete();
+  return { deleted: true };
+});
+
+export const adminListBilling = onCall({ timeoutSeconds: 30 }, async (request) => {
+  requireAdmin(request);
+  const snap = await db.collection('billing').limit(500).get();
+  return snap.docs.map((doc) => ({ uid: doc.id, credits: doc.data()?.credits ?? 0 }));
+});
+
+// Reads the uid/kind/day fields checkAndIncrementRateLimit now stamps on
+// every rate_limits document (added alongside this admin panel) so today's
+// usage can be queried directly instead of listing the whole collection and
+// parsing doc IDs.
+export const adminGetTodayRateLimits = onCall({ timeoutSeconds: 30 }, async (request) => {
+  requireAdmin(request);
+  const day = new Date().toISOString().slice(0, 10);
+  const snap = await db.collection('rate_limits').where('day', '==', day).limit(500).get();
+  return snap.docs.map((doc) => {
+    const data = doc.data();
+    return { uid: data.uid, kind: data.kind, count: data.count ?? 0 };
+  });
 });

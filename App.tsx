@@ -13,11 +13,12 @@ import { ProductImage, CustomModel } from './types';
 import { fileToGenerativePart, generateProductShot, generateProductVideo } from './services/geminiService';
 import { addUsageRecord } from './services/usageTracker';
 import { auth } from './services/firebase';
-import { Sparkles, Loader2, LifeBuoy, UserCircle2, X } from 'lucide-react';
+import { Sparkles, Loader2, LifeBuoy, UserCircle2, X, ShieldCheck } from 'lucide-react';
 import { ImageModal } from './components/ImageModal';
 import { SupportModal } from './components/SupportModal';
 import { PRODUCT_CATEGORIES, LOCATION_CATEGORIES, MODEL_GENDERS, CUSTOM_LOCATION, getGenerationTasksForGroup, ProductCategoryGroup } from './services/taxonomy';
 import { subscribeToFeatureFlags, DEFAULT_FLAGS, FeatureFlags } from './services/featureFlags';
+import { isAdminEmail } from './services/admin';
 
 // Lazy-loaded: these two pull in real weight (Dashboard subscribes to a
 // Firestore listener; MovieFlowStudio pulls in the video-stitching utils)
@@ -26,6 +27,7 @@ import { subscribeToFeatureFlags, DEFAULT_FLAGS, FeatureFlags } from './services
 const Dashboard = React.lazy(() => import('./components/Dashboard').then((m) => ({ default: m.Dashboard })));
 const MovieFlowStudio = React.lazy(() => import('./components/MovieFlowStudio').then((m) => ({ default: m.MovieFlowStudio })));
 const CustomModelStudio = React.lazy(() => import('./components/CustomModelStudio').then((m) => ({ default: m.CustomModelStudio })));
+const AdminPanel = React.lazy(() => import('./components/AdminPanel').then((m) => ({ default: m.AdminPanel })));
 
 // Fetches a (possibly cross-origin) image URL and returns its raw base64
 // payload -- same conversion fileToGenerativePart does for uploaded Files,
@@ -169,6 +171,7 @@ const App: React.FC = () => {
   const [selectedGender, setSelectedGender] = useState<string>('Unspecified');
   const [wantsAutoVideo, setWantsAutoVideo] = useState(false);
   const [customModelStudioOpen, setCustomModelStudioOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
   const [selectedCustomModel, setSelectedCustomModel] = useState<CustomModel | null>(null);
 
   const selectedCategoryGroup: ProductCategoryGroup =
@@ -724,6 +727,12 @@ const App: React.FC = () => {
         </React.Suspense>
       )}
 
+      {adminOpen && isAdminEmail(username) && (
+        <React.Suspense fallback={null}>
+          <AdminPanel isOpen={adminOpen} onClose={() => setAdminOpen(false)} />
+        </React.Suspense>
+      )}
+
       {/* Processing Overlay */}
       {isProcessingGlobal && (
           <div className="fixed inset-0 z-[60] bg-white/80 backdrop-blur-lg flex flex-col items-center justify-center p-4">
@@ -789,6 +798,15 @@ const App: React.FC = () => {
                     )}
                 </div>
                 <span className="px-3 py-1 rounded-full bg-rose-50 border border-rose-100 text-rose-700 hidden sm:block">V 4.0 E-COMMERCE</span>
+                {isAdminEmail(username) && (
+                  <button
+                    onClick={() => setAdminOpen(true)}
+                    className="p-2 rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors ml-2"
+                    title="Admin"
+                  >
+                    <ShieldCheck size={16} />
+                  </button>
+                )}
                 <button
                   onClick={() => setSupportOpen(true)}
                   className="p-2 rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors ml-2"
